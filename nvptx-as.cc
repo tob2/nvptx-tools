@@ -28,7 +28,6 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -44,6 +43,7 @@
 
 #include <list>
 #include <iostream>
+#include <sstream>
 
 #include "version.h"
 
@@ -83,16 +83,10 @@ static bool verbose = false;
 
 static const char *outname = NULL;
 
-static void __attribute__ ((format (printf, 1, 2)))
-fatal_error (const char * cmsgid, ...)
+static void
+fatal_error (const std::string &error_string)
 {
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "nvptx-as: ");
-  vfprintf (stderr, cmsgid, ap);
-  fprintf (stderr, "\n");
-  va_end (ap);
+  std::cerr << "nvptx-as: " << error_string << "\n";
 
   if (outname)
     unlink (outname);
@@ -292,7 +286,11 @@ tokenize (const char *ptr)
 	goto block_comment;
       c = (unsigned char)*ptr++;
       if (c > 127)
-	fatal_error ("non-ascii character encountered: 0x%x", c);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "non-ascii character encountered: " << std::hex << std::showbase << (int) c;
+	  fatal_error (error_stream.str ());
+	}
       switch (kind = c)
 	{
 	default:
@@ -814,7 +812,11 @@ parse_file (htab_t symbol_table, Token *tok)
 			= ((eol == NULL)
 			   ? start->ptr
 			   : strndup (start->ptr, eol - start->ptr));
-		      fatal_error ("expected identifier in line '%s'", line);
+		      {
+			std::ostringstream error_stream;
+			error_stream << "expected identifier in line '" << line << "'";
+			fatal_error (error_stream.str ());
+		      }
 		    }
 		  /* variable */
 		  Stmt *stmt = alloc_stmt (vis, start, tok, def);
@@ -914,8 +916,11 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
       if (tok[i].kind == K_dotted && is_keyword (&tok[i], "version"))
 	i++;
       else
-	fatal_error ("missing .version directive at start of file '%s'",
-		     inname);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "missing .version directive at start of file '" << inname << "'";
+	  fatal_error (error_stream.str ());
+	}
       /* 'ptxas' doesn't seem to allow comments or line breaks here, but it's
 	 not documented.  */
       while (tok[i].kind == K_comment)
@@ -923,15 +928,21 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
       if (tok[i].kind == K_number)
 	i++;
       else
-	fatal_error ("malformed .version directive at start of file '%s'",
-		     inname);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "malformed .version directive at start of file '" << inname << "'";
+	  fatal_error (error_stream.str ());
+	}
       while (tok[i].kind == K_comment)
 	i++;
       if (tok[i].kind == K_dotted && is_keyword (&tok[i], "target"))
 	i++;
       else
-	fatal_error ("missing .target directive at start of file '%s'",
-		     inname);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "missing .target directive at start of file '" << inname << "'";
+	  fatal_error (error_stream.str ());
+	}
       while (tok[i].kind == K_comment)
 	i++;
       if (tok[i].kind == K_symbol)
@@ -941,13 +952,19 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
 	  i++;
 	}
       else
-	fatal_error ("malformed .target directive at start of file '%s'",
-		     inname);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "malformed .target directive at start of file '" << inname << "'";
+	  fatal_error (error_stream.str ());
+	}
       /* PTX allows here a "comma separated list of target specifiers", but GCC
 	 doesn't generate that, and we don't support that.  */
       if (tok[i].kind == ',')
-	fatal_error ("unsupported list in .target directive at start of file '%s'",
-		     inname);
+	{
+	  std::ostringstream error_stream;
+	  error_stream << "unsupported list in .target directive at start of file '" << inname << "'";
+	  fatal_error (error_stream.str ());
+	}
     }
 
   htab_t symbol_table
@@ -983,17 +1000,23 @@ collect_wait (const char *prog, struct pex_obj *pex)
   int status;
 
   if (!pex_get_status (pex, 1, &status))
-    fatal_error ("can't get program status: %m");
+    {
+      std::ostringstream error_stream;
+      error_stream << "can't get program status: " << strerror (errno);
+      fatal_error (error_stream.str ());
+    }
   pex_free (pex);
 
   if (status)
     {
       if (WIFSIGNALED (status))
 	{
+	  std::ostringstream error_stream;
 	  int sig = WTERMSIG (status);
-	  fatal_error ("%s terminated with signal %d [%s]%s",
-		       prog, sig, strsignal(sig),
-		       WCOREDUMP(status) ? ", core dumped" : "");
+	  error_stream << prog << " terminated with signal " << sig << " [" << strsignal (sig) << "]";
+	  if (WCOREDUMP (status))
+	    error_stream << ", core dumped";
+	  fatal_error (error_stream.str ());
 	}
 
       if (WIFEXITED (status))
@@ -1008,7 +1031,9 @@ do_wait (const char *prog, struct pex_obj *pex)
   int ret = collect_wait (prog, pex);
   if (ret != 0)
     {
-      fatal_error ("%s returned %d exit status", prog, ret);
+      std::ostringstream error_stream;
+      error_stream << prog << " returned " << ret << " exit status";
+      fatal_error (error_stream.str ());
     }
 }
 
@@ -1031,7 +1056,11 @@ fork_execute (const char *prog, const char *const *argv)
 
   struct pex_obj *pex = pex_init (0, "nvptx-as", NULL);
   if (pex == NULL)
-    fatal_error ("pex_init failed: %m");
+    {
+      std::ostringstream error_stream;
+      error_stream << "pex_init failed: " << strerror (errno);
+      fatal_error (error_stream.str ());
+    }
 
   int err;
   const char *errmsg;
@@ -1041,13 +1070,12 @@ fork_execute (const char *prog, const char *const *argv)
 		    NULL, NULL, &err);
   if (errmsg != NULL)
     {
+      std::ostringstream error_stream;
+      error_stream << "error trying to exec '" << argv[0] << "': ";
+      error_stream << errmsg;
       if (err != 0)
-	{
-	  errno = err;
-	  fatal_error ("error trying to exec '%s': %s: %m", argv[0], errmsg);
-	}
-      else
-	fatal_error ("error trying to exec '%s': %s", argv[0], errmsg);
+	error_stream << ": " << strerror (err);
+      fatal_error (error_stream.str ());
     }
   do_wait (prog, pex);
 }
@@ -1216,7 +1244,11 @@ This program has absolutely no warranty.\n";
   if (outname)
     out = fopen (outname, "w");
   if (!out)
-    fatal_error ("cannot open '%s'", outname);
+    {
+      std::ostringstream error_stream;
+      error_stream << "cannot open '" << outname << "'";
+      fatal_error (error_stream.str ());
+    }
 
   if (argc > optind)
     {

@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #ifndef NVPTX_RUN_INCLUDE_SYSTEM_CUDA_H
 # include "cuda/cuda.h"
 #else
@@ -38,6 +37,7 @@ extern "C" CUresult cuGetErrorString (CUresult, const char **);
 #include "libiberty.h"
 
 #include <iostream>
+#include <sstream>
 
 #include "version.h"
 
@@ -109,16 +109,10 @@ init_cuda_lib (void)
   CUDA_CALL_PREFIX FN
 
 
-static void __attribute__ ((format (printf, 1, 2)))
-fatal_error (const char * cmsgid, ...)
+static void
+fatal_error (const std::string &error_string)
 {
-  va_list ap;
-
-  va_start (ap, cmsgid);
-  fprintf (stderr, "nvptx-run: ");
-  vfprintf (stderr, cmsgid, ap);
-  fprintf (stderr, "\n");
-  va_end (ap);
+  std::cerr << "nvptx-run: " << error_string << "\n";
 
   exit (127);
 }
@@ -135,7 +129,9 @@ fatal_unless_success (CUresult r, const char *err)
   const char *n = "[unknown]";
   if (CUDA_CALL_EXISTS (cuGetErrorName))
     CUDA_CALL_NOCHECK (cuGetErrorName, r, &n);
-  fatal_error ("%s: %s (%s, %d)", err, s, n, (int) r);
+  std::ostringstream error_stream;
+  error_stream << err << ": " << s << " ("<< n << ", " << (int) r << ")";
+  fatal_error (error_stream.str ());
 }
 
 static size_t jitopt_lineinfo, jitopt_debuginfo, jitopt_optimize = 4;
