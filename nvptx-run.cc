@@ -35,6 +35,8 @@ extern "C" CUresult cuGetErrorString (CUresult, const char **);
 #define HAVE_DECL_BASENAME 1
 #include "libiberty.h"
 
+#include <iostream>
+
 #include "version.h"
 
 #define DO_PRAGMA(x) _Pragma (#x)
@@ -182,9 +184,9 @@ compile_file (FILE *f, CUmodule *phModule)
       if (r != CUDA_SUCCESS)
 	{
 #if 0
-	  fputs (program + off, stderr);
+	  std::cerr << (program + off);
 #endif
-	  fprintf (stderr, "%s\n", elog);
+	  std::cerr << elog << "\n";
 	  fatal_unless_success (r, "cuLinkAddData failed");
 	}
 
@@ -200,7 +202,7 @@ compile_file (FILE *f, CUmodule *phModule)
   r = CUDA_CALL_NOCHECK (cuLinkComplete, linkstate, &linkout, NULL);
   if (r != CUDA_SUCCESS)
     {
-      fprintf (stderr, "%s\n", elog);
+      std::cerr << elog << "\n";
       fatal_unless_success (r, "cuLinkComplete failed");
     }
 
@@ -212,9 +214,9 @@ compile_file (FILE *f, CUmodule *phModule)
 }
 
 ATTRIBUTE_NORETURN static void
-usage (FILE *stream, int status)
+usage (std::ostream &out_stream, int status)
 {
-  fprintf (stream, "\
+  out_stream << "\
 Usage: nvptx-none-run [option...] program [argument...]\n\
 Options:\n\
   -S, --stack-size N    Set per-lane GPU stack size to N (default: auto)\n\
@@ -226,8 +228,7 @@ Options:\n\
   --help                Print this help and exit\n\
   --version             Print version number and exit\n\
 \n\
-Report bugs to %s.\n",
-	   REPORT_BUGS_TO);
+Report bugs to " << REPORT_BUGS_TO << ".\n";
   exit (status);
 }
 
@@ -280,20 +281,19 @@ main (int argc, char **argv)
 	  jitopt_debuginfo = 1;
 	  break;
 	case 'h':
-	  usage (stdout, 0);
+	  usage (std::cout, 0);
 	  break;
 	case 'V':
-	  printf ("\
-nvptx-none-run %s%s\n\
-Copyright %s Mentor Graphics\n\
+	  std::cout << "\
+nvptx-none-run " << PKGVERSION << NVPTX_TOOLS_VERSION << "\n\
+Copyright 2015 Mentor Graphics\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
 This program is free software; you may redistribute it under the terms of\n\
 the GNU General Public License version 3 or later.\n\
-This program has absolutely no warranty.\n",
-		  PKGVERSION, NVPTX_TOOLS_VERSION, "2015");
+This program has absolutely no warranty.\n";
 	  exit (0);
 	default:
-	  usage (stderr, 1);
+	  usage (std::cerr, 1);
 	  break;
 	}
     }
@@ -354,7 +354,7 @@ This program has absolutely no warranty.\n",
   size_t stack, heap;
   CUDA_CALL_NOCHECK (cuCtxGetLimit, &stack, CU_LIMIT_STACK_SIZE);
   CUDA_CALL_NOCHECK (cuCtxGetLimit, &heap, CU_LIMIT_MALLOC_HEAP_SIZE);
-  printf ("stack %ld heap %ld\n", stack, heap);
+  std::cout << "stack " << stack << " heap " << heap << "\n";
 #endif
 
   if (!stack_size)

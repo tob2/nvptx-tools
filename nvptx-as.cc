@@ -41,6 +41,7 @@
 #include <hashtab.h>
 
 #include <list>
+#include <iostream>
 
 #include "version.h"
 
@@ -1019,11 +1020,11 @@ fork_execute (const char *prog, const char *const *argv)
       for (const char *const *arg = argv; *arg; ++arg)
 	{
 	  if (**arg == '\0')
-	    fprintf (stderr, " ''");
+	    std::cerr << " ''";
 	  else
-	    fprintf (stderr, " %s", *arg);
+	    std::cerr << " " << *arg;
 	}
-      fprintf (stderr, "\n");
+      std::cerr << "\n";
     }
 
   struct pex_obj *pex = pex_init (0, "nvptx-as", NULL);
@@ -1123,9 +1124,9 @@ program_available (const char *progname)
 }
 
 ATTRIBUTE_NORETURN static void
-usage (FILE *stream, int status)
+usage (std::ostream &out_stream, int status)
 {
-  fprintf (stream, "\
+  out_stream << "\
 Usage: nvptx-none-as [option...] [asmfile]\n\
 Options:\n\
   -m TARGET             Override target architecture used for ptxas\n\
@@ -1137,8 +1138,7 @@ Options:\n\
   --help                Print this help and exit\n\
   --version             Print version number and exit\n\
 \n\
-Report bugs to %s.\n",
-	   REPORT_BUGS_TO);
+Report bugs to " << REPORT_BUGS_TO << ".\n";
   exit (status);
 }
 
@@ -1179,7 +1179,7 @@ main (int argc, char **argv)
 	case 'o':
 	  if (outname != NULL)
 	    {
-	      fprintf (stderr, "multiple output files specified\n");
+	      std::cerr << "multiple output files specified\n";
 	      exit (1);
 	    }
 	  outname = optarg;
@@ -1191,20 +1191,19 @@ main (int argc, char **argv)
 	  /* Ignore include paths.  */
 	  break;
 	case 'h':
-	  usage (stdout, 0);
+	  usage (std::cout, 0);
 	  break;
 	case 'V':
-	  printf ("\
-nvptx-none-as %s%s\n\
-Copyright %s Mentor Graphics\n\
+	  std::cout << "\
+nvptx-none-as " << PKGVERSION << NVPTX_TOOLS_VERSION << "\n\
+Copyright 2015 Mentor Graphics\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
 This program is free software; you may redistribute it under the terms of\n\
 the GNU General Public License version 3 or later.\n\
-This program has absolutely no warranty.\n",
-		  PKGVERSION, NVPTX_TOOLS_VERSION, "2015");
+This program has absolutely no warranty.\n";
 	  exit (0);
 	default:
-	  usage (stderr, 1);
+	  usage (std::cerr, 1);
 	  break;
 	}
     }
@@ -1290,10 +1289,10 @@ This program has absolutely no warranty.\n",
 		 'sm_50', which is the baseline supported by all current CUDA
 		 versions down to CUDA 6.5, at least.  */
 	      if (verbose)
-		fprintf (stderr, "Verifying %s code", target_arg);
+		std::cerr << "Verifying " << target_arg << " code";
 	      target_arg = "sm_50";
 	      if (verbose)
-		fprintf (stderr, " with %s code generation.\n", target_arg);
+		std::cerr << " with " << target_arg << " code generation.\n";
 	    }
 	}
 
@@ -1313,7 +1312,7 @@ This program has absolutely no warranty.\n",
   else if (verify < 0)
     {
       if (verbose)
-	fprintf (stderr, "'ptxas' not available.\n");
+	std::cerr << "'ptxas' not available.\n";
     }
 
   free (preamble_target_arg);

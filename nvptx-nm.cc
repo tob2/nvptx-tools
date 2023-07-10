@@ -54,7 +54,7 @@
 
 #include "version.h"
 
-ATTRIBUTE_NORETURN static void usage (FILE *, int);
+ATTRIBUTE_NORETURN static void usage (std::ostream &, int);
 
 static const char *print_format_string = NULL;
 
@@ -251,7 +251,7 @@ set_output_format (const char *f)
       break;
     default:
       std::cerr << f << ": invalid output format\n";
-      usage (stderr, 1);
+      usage (std::cerr, 1);
     }
 }
 
@@ -498,9 +498,9 @@ print_object_filename_bsd (const char *filename)
 }
 
 ATTRIBUTE_NORETURN static void
-usage (FILE *stream, int status)
+usage (std::ostream &out_stream, int status)
 {
-  fprintf (stream, "\
+  out_stream << "\
 Usage: nvptx-none-nm [option...] [files...]\n\
 Options:\n\
   -B                    Same as --format=bsd\n\
@@ -514,8 +514,7 @@ Options:\n\
 \n\
 If no files are given, `a.out' is defaulted.\n\
 \n\
-Report bugs to %s.\n",
-	   REPORT_BUGS_TO);
+Report bugs to " << REPORT_BUGS_TO << ".\n";
   exit (status);
 }
 
@@ -567,22 +566,21 @@ main (int argc, char **argv)
 	  reverse_sort = 1;
 	  break;
 	case 'h':
-	  usage (stdout, 0);
+	  usage (std::cout, 0);
 	  break;
 	case 'V':
-	  printf ("\
-nvptx-none-nm %s%s\n\
-Copyright %s Free Software Foundation, Inc., Mentor Graphics, Siemens\n\
+	  std::cout << "\
+nvptx-none-nm " << PKGVERSION << NVPTX_TOOLS_VERSION << "\n\
+Copyright 2022 Free Software Foundation, Inc., Mentor Graphics, Siemens\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
 This program is free software; you may redistribute it under the terms of\n\
 the GNU General Public License version 3 or later.\n\
-This program has absolutely no warranty.\n",
-		  PKGVERSION, NVPTX_TOOLS_VERSION, "2022");
+This program has absolutely no warranty.\n";
 	  exit (0);
 	case 0:		/* A long option that just sets a flag.  */
 	  break;
 	default:
-	  usage (stderr, 1);
+	  usage (std::cerr, 1);
 	  break;
 	}
     }

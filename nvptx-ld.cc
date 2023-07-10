@@ -618,9 +618,9 @@ process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 }
 
 ATTRIBUTE_NORETURN static void
-usage (FILE *stream, int status)
+usage (std::ostream &out_stream, int status)
 {
-  fprintf (stream, "\
+  out_stream << "\
 Usage: nvptx-none-ld [option...] [files]\n\
 Options:\n\
   -o FILE               Write output to FILE\n\
@@ -630,8 +630,7 @@ Options:\n\
   --help                Print this help and exit\n\
   --version             Print version number and exit\n\
 \n\
-Report bugs to %s.\n",
-	  REPORT_BUGS_TO);
+Report bugs to " << REPORT_BUGS_TO << ".\n";
   exit (status);
 }
 
@@ -675,17 +674,16 @@ main (int argc, char **argv)
 	  libpaths.push_back (optarg);
 	  break;
 	case 'h':
-	  usage (stdout, 0);
+	  usage (std::cout, 0);
 	  break;
 	case 'V':
-	  printf ("\
-nvptx-none-ld %s%s\n\
-Copyright %s Mentor Graphics\n\
+	  std::cout << "\
+nvptx-none-ld " << PKGVERSION << NVPTX_TOOLS_VERSION << "\n\
+Copyright 2015 Mentor Graphics\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
 This program is free software; you may redistribute it under the terms of\n\
 the GNU General Public License version 3 or later.\n\
-This program has absolutely no warranty.\n",
-		  PKGVERSION, NVPTX_TOOLS_VERSION, "2015");
+This program has absolutely no warranty.\n";
 	  exit (0);
 	case OPT_hash_style:
 	  /* Ignore '--hash-style'; see
@@ -693,7 +691,7 @@ This program has absolutely no warranty.\n",
 	     "Handle --hash-style argument in nvptx-ld".  */
 	  break;
 	default:
-	  usage (stderr, 1);
+	  usage (std::cerr, 1);
 	  break;
 	}
     }
