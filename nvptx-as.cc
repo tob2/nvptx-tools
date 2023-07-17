@@ -43,6 +43,7 @@
 
 #include <list>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 
 #include "version.h"
@@ -439,10 +440,10 @@ tokenize (const char *ptr, std::ostream &error_stream)
 /* Write an encoded token. */
 
 static void
-write_token (FILE *out, Token const *tok)
+write_token (std::ostream &out_stream, Token const *tok)
 {
   if (tok->space)
-    fputc (' ', out);
+    out_stream << ' ';
 
   switch (tok->kind)
     {
@@ -451,33 +452,33 @@ write_token (FILE *out, Token const *tok)
 	const char *c = tok->ptr + 1;
 	size_t len = tok->len - 2;
 
-	fputs ("\"", out);
+	out_stream << '"';
 	while (len)
 	  {
 	    const char *bs = (const char *)memchr (c, '\\', len);
 	    size_t l = bs ? bs - c : len;
 
-	    fprintf (out, "%.*s", (int)l, c);
+	    out_stream.write (c, l);
 	    len -= l;
 	    c += l;
 	    if (bs)
 	      {
-		fputs ("\\\\", out);
+		out_stream << "\\\\";
 		len--, c++;
 	      }
 	  }
-	fputs ("\"", out);
+	out_stream << '"';
       }
       break;
 
     default:
-      /* All other tokens shouldn't have anything magic in them */
-      fprintf (out, "%.*s", tok->len, tok->ptr);
+      /* All other tokens shouldn't have anything magic in them.  */
+      out_stream.write (tok->ptr, tok->len);
       break;
     }
 
   if (tok->end)
-    fputs ("\n", out);
+    out_stream << '\n';
 }
 
 /* The preamble '.target' directive's argument.  */
@@ -586,23 +587,23 @@ rev_stmts (Stmt *stmt)
 }
 
 static void
-write_stmt (FILE *out, const Stmt *stmt)
+write_stmt (std::ostream &out_stream, const Stmt *stmt)
 {
   for (Token *tok = stmt->tokens; tok != stmt->tokens_end; ++tok)
     {
       if ((stmt->vis & V_mask) == V_comment)
-	fprintf (out, "//");
-      write_token (out, tok);
+	out_stream << "//";
+      write_token (out_stream, tok);
       if ((stmt->vis & V_mask) == V_pred)
-	fputc (' ', out);
+	out_stream << ' ';
     }
 }
 
 static void
-write_stmts (FILE *out, const Stmt *stmts)
+write_stmts (std::ostream &out_stream, const Stmt *stmts)
 {
   for (; stmts; stmts = stmts->next)
-    write_stmt (out, stmts);
+    write_stmt (out_stream, stmts);
 }
 
 /* Parse a line until the end, regardless of semicolons.  */
@@ -916,7 +917,7 @@ parse_file (htab_t symbol_table, Token *tok, std::ostream &error_stream)
 }
 
 static bool
-output_symbol (FILE *out, symbol *e, std::ostream &error_stream)
+output_symbol (std::ostream &out_stream, symbol *e, std::ostream &error_stream)
 {
   if (e->emitted)
     return true;
@@ -928,17 +929,17 @@ output_symbol (FILE *out, symbol *e, std::ostream &error_stream)
   e->pending = true;
   std::list<symbol *>::iterator i;
   for (i = e->deps.begin (); i != e->deps.end (); i++)
-    if (!output_symbol (out, *i, error_stream))
+    if (!output_symbol (out_stream, *i, error_stream))
       return false;
   e->pending = false;
-  write_stmts (out, rev_stmts (e->stmts));
+  write_stmts (out_stream, rev_stmts (e->stmts));
   e->emitted = true;
   return true;
 }
 
 struct traverse_data
 {
-  FILE *out;
+  std::ostream &out_stream;
   std::ostream &error_stream;
   bool error_seen;
 };
@@ -948,7 +949,7 @@ traverse (void **slot, void *data)
 {
   traverse_data *tdata = (traverse_data *) data;
   symbol *e = *(symbol **)slot;
-  if (!output_symbol (tdata->out, e, tdata->error_stream))
+  if (!output_symbol (tdata->out_stream, e, tdata->error_stream))
     {
       tdata->error_seen = true;
       return 0;
@@ -957,7 +958,7 @@ traverse (void **slot, void *data)
 }
 
 static void
-process (FILE *in, FILE *out, int *verify, const char *inname)
+process (FILE *in, std::ostream &out_stream, int *verify, const char *inname)
 {
   std::ostringstream error_stream;
 
@@ -1006,14 +1007,14 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
     }
   while (tok->kind);
 
-  write_stmts (out, rev_stmts (decls));
+  write_stmts (out_stream, rev_stmts (decls));
   {
-    traverse_data tdata = { out, error_stream, false };
+    traverse_data tdata = { out_stream, error_stream, false };
     htab_traverse (symbol_table, traverse, &tdata);
     if (tdata.error_seen)
       fatal_error (error_stream.str ());
   }
-  write_stmts (out, rev_stmts (fns));
+  write_stmts (out_stream, rev_stmts (fns));
 
   htab_delete (symbol_table);
 
@@ -1224,7 +1225,7 @@ main (int argc, char **argv)
 {
   FILE *in = stdin;
   const char *inname = "{standard input}";
-  FILE *out = stdout;
+  std::ostream *out_stream = &std::cout;
   int verify = -1;
   const char *target_arg_force = NULL;
 
@@ -1279,8 +1280,8 @@ This program has absolutely no warranty.\n";
     fatal_error ("too many input files specified");
 
   if (outname)
-    out = fopen (outname, "w");
-  if (!out)
+    out_stream = new std::ofstream (outname);
+  if (out_stream->fail ())
     {
       std::ostringstream error_stream;
       error_stream << "cannot open '" << outname << "'";
@@ -1295,17 +1296,17 @@ This program has absolutely no warranty.\n";
   if (!in)
     fatal_error ("cannot open input ptx file");
 
-  process (in, out, &verify, inname);
+  process (in, *out_stream, &verify, inname);
 
   if (in != stdin)
     {
       fclose (in);
       in = NULL;
     }
-  if (out != stdout)
+  if (out_stream != &std::cout)
     {
-      fclose (out);
-      out = NULL;
+      delete out_stream;
+      out_stream = NULL;
     }
 
   if (outname == NULL)
