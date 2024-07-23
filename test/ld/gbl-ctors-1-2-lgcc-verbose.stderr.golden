@@ -1,8 +1,12 @@
 resolving lib libgcc.a
-Linking gbl-ctors-1.o as 0
-Linking gbl-ctors-2.o as 1
+Enqueueing gbl-ctors-1.o
+Enqueueing gbl-ctors-2.o
 trying lib libgcc/libgcc.a
 Starting first resolve run
+Resolving *inputfile 1 gbl-ctors-2.o
+Resolving *inputfile 0 gbl-ctors-1.o
+Linking gbl-ctors-1.o as 0
+Linking gbl-ctors-2.o as 1
 special-purpose function: constructor with priority: 65535, sequence: 0: '_GLOBAL__I_65535_0_c1'
 special-purpose function: constructor with priority: 1234, sequence: 1: '_GLOBAL__I_01234_0_d1'
 special-purpose function: constructor with priority: 65535, sequence: 2: '_GLOBAL__I_65535_1_d1'

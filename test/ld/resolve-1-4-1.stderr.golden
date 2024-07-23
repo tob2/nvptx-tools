@@ -1,7 +1,11 @@
-Linking o/f1.o as 0
-Linking o/a.o as 1
+Enqueueing o/f1.o
+Enqueueing o/a.o
 trying lib a/libf.a
 Starting first resolve run
+Resolving *inputfile 1 o/a.o
+Resolving *inputfile 0 o/f1.o
+Linking o/f1.o as 0
+Linking o/a.o as 1
 Resolving f3
 Resolving f2
 Linking a/libf.a::f123.o/          as 2

@@ -44,6 +44,7 @@ struct file_hash_entry;
 struct symbol_hash_entry
 {
   /* The name of the symbol.  */
+  /* Names beginning with '*' are special.  */
   const char *key;
   /* A linked list of unresolved referenced symbols.  */
   struct symbol_hash_entry **pprev, *next;
@@ -125,7 +126,7 @@ file_hash_new (const char *data, size_t len, const char *arname, const char *nam
   struct file_hash_entry *v = XCNEW (struct file_hash_entry);
   v->data = data;
   v->len = len;
-  v->name = xstrdup (name);
+  v->name = name ? xstrdup (name) : NULL;
   v->arname = xstrdup (arname);
   return v;
 }
@@ -649,6 +650,7 @@ int
 main (int argc, char **argv)
 {
   const char *outname = NULL;
+  FILE *outfile = NULL;
   std::list<std::string> libraries;
   std::list<std::string> libpaths;
 
@@ -703,25 +705,17 @@ This program has absolutely no warranty.\n";
   if (outname == NULL)
     outname = "a.out";
 
-  htab_t symbol_table
-    = htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
-  /* List of 'file_hash_entry' instances to clean up when we're done with the
-     'symbol_table'.  */
+  /* List of 'file_hash_entry' instances to clean up when we're done.  */
   std::list<file_hash_entry *> fhe_to_clean_up;
 
+  htab_t symbol_table
+    = htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
+
   define_intrinsics (symbol_table);
-  
-  FILE *outfile = fopen (outname, "w");
-  if (outfile == NULL)
-    {
-      std::cerr << "error opening output file\n";
-      exit (1);
-    }
+
   std::list<std::string> inputfiles;
   while (optind < argc)
     inputfiles.push_back (argv[optind++]);
-
-  int idx = 0;
 
   for (std::list<std::string>::iterator iterator = libraries.begin(), end = libraries.end();
        iterator != end;
@@ -740,9 +734,10 @@ This program has absolutely no warranty.\n";
     }
 
   /* Scan 'inputfiles'.  */
+  static size_t inputfile_num = 0;
   for (std::list<std::string>::const_iterator iterator = inputfiles.begin(), end = inputfiles.end();
        iterator != end;
-       ++iterator)
+       ++iterator, ++inputfile_num)
     {
       const std::string &name = *iterator;
       FILE *f = fopen (name.c_str (), "r");
@@ -768,7 +763,7 @@ This program has absolutely no warranty.\n";
       fseek (f, 0, SEEK_END);
       off_t len = ftell (f);
       fseek (f, 0, SEEK_SET);
-      char *buf = new char[len + 1];
+      char *buf = XNEWVEC (char, len + 1);
       size_t read_len = fread (buf, 1, len, f);
       buf[len] = '\0';
       if (read_len != len || ferror (f))
@@ -779,24 +774,27 @@ This program has absolutely no warranty.\n";
 	}
       fclose (f);
       f = NULL;
-      size_t out = fwrite (buf, 1, len, outfile);
-      if (out != len)
-	{
-	  std::cerr << "error writing to output file\n";
-	  goto error_out;
-	}
-      const char *buf_ = process_refs_defs (symbol_table, NULL, buf);
+
+      if (verbose)
+	std::cerr << "Enqueueing " << name << "\n";
+      file_hash_entry *fhe = file_hash_new (buf, len, name.c_str (), NULL);
+      fhe_to_clean_up.push_front (fhe);
+      const char *buf_ = process_refs_defs (symbol_table, fhe, buf);
       if (buf_ == NULL)
 	{
-	  std::cerr << "while scanning '" << name << "'\n";
-	  delete[] buf;
+	  assert (!fhe->name);
+	  std::cerr << "while scanning '" << fhe->arname << "'\n";
 	  goto error_out;
 	}
       assert (buf_ == &buf[len + 1]);
-      delete[] buf;
-      if (verbose)
-	std::cerr << "Linking " << name << " as " << idx++ << "\n";
-      fputc ('\0', outfile);
+      /* There are no initial 'unresolved' symbols for 'inputfiles' to resolve,
+	 so they won't be linked in.  Therefore, manually register with special
+	 'sym_name'.  */
+      char *sym_name = xasprintf ("*inputfile %zu %s", inputfile_num, name.c_str ());
+      struct symbol_hash_entry *e = symbol_hash_lookup (symbol_table, sym_name, 1);
+      assert (!e->def);
+      e->def = fhe;
+      enqueue_as_unresolved (e);
     }
 
   /* This de-duplication is best-effort only; it doesn't consider that the same
@@ -852,8 +850,17 @@ This program has absolutely no warranty.\n";
       fclose (f);
     }
 
+  outfile = fopen (outname, "w");
+  if (outfile == NULL)
+    {
+      std::cerr << "error opening output file\n";
+      exit (1);
+    }
+
   /* Resolve and link.  */
   {
+  int idx = 0;
+
   bool first_resolve_run = true;
  resolve:
   if (verbose)
@@ -866,6 +873,15 @@ This program has absolutely no warranty.\n";
       struct symbol_hash_entry *e;
       for (e = unresolved; e; e = e->next)
 	{
+	  if (e->key[0] == '*')
+	    {
+	      /* Special symbols have to be dequeued manually, as the
+		 subsequent 'process_refs_defs' won't do anything with
+		 them.  */
+	      e->included = true;
+	      dequeue_unresolved (e);
+	    }
+
 	  struct file_hash_entry *fhe = e->def;
 	  if (!fhe)
 	    {
@@ -888,7 +904,12 @@ This program has absolutely no warranty.\n";
 	{
 	  fhe->pprev = NULL;
 	  if (verbose)
-	    std::cerr << "Linking " << fhe->arname << "::" << fhe->name << " as " << idx++ << "\n";
+	    {
+	      std::cerr << "Linking " << fhe->arname;
+	      if (fhe->name)
+		std::cerr << "::" << fhe->name;
+	      std::cerr << " as " << idx++ << "\n";
+	    }
 	  if (fwrite (fhe->data, 1, fhe->len, outfile) != fhe->len)
 	    {
 	      std::cerr << "error writing to output file\n";
@@ -975,8 +996,11 @@ This program has absolutely no warranty.\n";
       fhe_to_clean_up.pop_front ();
     }
 
-  fclose (outfile);
-  unlink (outname);
+  if (outfile)
+    {
+      fclose (outfile);
+      unlink (outname);
+    }
 
   return 1;
 }

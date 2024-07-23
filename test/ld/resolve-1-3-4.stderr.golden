@@ -1,6 +1,8 @@
-Linking o/a.o as 0
+Enqueueing o/a.o
 trying lib a/libf_.a
 Starting first resolve run
+Resolving *inputfile 0 o/a.o
+Linking o/a.o as 0
 Resolving f3
 Resolving f1
 Linking a/libf_.a::f1.o/            as 1
