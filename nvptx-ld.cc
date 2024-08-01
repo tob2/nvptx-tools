@@ -915,15 +915,17 @@ This program has absolutely no warranty.\n";
 		std::cerr << "::" << fhe->name;
 	      std::cerr << " as " << idx++ << "\n";
 	    }
+
+	  const char *fhe_data_ = process_refs_defs (symbol_table, NULL, fhe->data);
+	  assert (fhe_data_ != NULL);
+	  assert (fhe_data_ == &fhe->data[fhe->len + 1]);
+
 	  if (fwrite (fhe->data, 1, fhe->len, outfile) != fhe->len)
 	    {
 	      std::cerr << "error writing to output file\n";
 	      goto error_out;
 	    }
 	  fputc ('\0', outfile);
-	  const char *fhe_data_ = process_refs_defs (symbol_table, NULL, fhe->data);
-	  assert (fhe_data_ != NULL);
-	  assert (fhe_data_ == &fhe->data[fhe->len + 1]);
 	}
     }
 
