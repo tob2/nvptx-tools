@@ -408,6 +408,7 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
   {
     struct symbol_hash_entry *e
       = symbol_hash_lookup (symbol_table, xstrdup ("__CTOR_LIST__"), 1);
+    assert (!e->included);
     e->included = true;
   }
 
@@ -447,6 +448,7 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
   {
     struct symbol_hash_entry *e
       = symbol_hash_lookup (symbol_table, xstrdup ("__DTOR_LIST__"), 1);
+    assert (!e->included);
     e->included = true;
   }
 
@@ -478,6 +480,9 @@ static struct symbol_hash_entry *unresolved;
 static void
 enqueue_as_unresolved (struct symbol_hash_entry *e)
 {
+  assert (!e->included);
+  assert (!e->referenced);
+
   e->pprev = &unresolved;
   e->next = unresolved;
   if (e->next)
@@ -489,12 +494,12 @@ enqueue_as_unresolved (struct symbol_hash_entry *e)
 static void
 dequeue_unresolved (struct symbol_hash_entry *e)
 {
-  if (e->pprev != NULL)
-    {
-      if (e->next)
-	e->next->pprev = e->pprev;
-      *e->pprev = e->next;
-    }
+  assert (e->referenced);
+  assert (e->pprev);
+
+  if (e->next)
+    e->next->pprev = e->pprev;
+  *e->pprev = e->next;
   e->pprev = NULL;
 }
 
@@ -509,6 +514,7 @@ define_intrinsics (htab_t symbol_table)
     {
       struct symbol_hash_entry *e
 	= symbol_hash_lookup (symbol_table, xstrdup (intrins[ix]), 1);
+      assert (!e->included);
       e->included = true;
     }
 }
@@ -572,39 +578,57 @@ process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 	  struct symbol_hash_entry *e
 	    = symbol_hash_lookup (symbol_table, sym_name, 1);
 
-	  if (!e->included)
+	  if (fhe)
 	    {
-	      if (type == 1)
+	      if (type == 2)
+		/* We're not looking for DECLs, only for DEFs.  */
+		;
+	      else if (type == 1)
 		{
-		  if (fhe)
-		    {
-		      if (e->def)
-			/* We've already seen an earlier DEF; ignore this one.  */
-			;
-		      else
-			e->def = fhe;
-		    }
+		  if (e->included)
+		    /* Another DEF for something we've already included.  */
+		    ;
+		  else if (e->def)
+		    /* We've already seen an earlier DEF; ignore this one.  */
+		    ;
+		  else
+		    e->def = fhe;
+		}
+	      else
+		abort ();
+	    }
+	  else /* !fhe */
+	    {
+	      if (type == 2)
+		{
+		  if (e->included)
+		    /* Another DECL for something we've already included.  */
+		    ;
+		  else if (e->referenced)
+		    /* Another DECL from something we already know as
+		       unresolved.  */
+		    ;
+		  else
+		    enqueue_as_unresolved (e);
+		}
+	      else if (type == 1)
+		{
+		  if (e->included)
+		    /* Another DEF for something we've already included.  */
+		    ;
 		  else
 		    {
+		      /* Object files always gets linked in their entirety,
+			 including DEFs that have not been referenced.  */
 		      e->included = true;
-		      dequeue_unresolved (e);
+		      if (e->referenced)
+			dequeue_unresolved (e);
 
 		      if (strncmp (e->key, "_GLOBAL__", 9) == 0)
 			/* Capture special-purpose function names already here,
 			   in order of appearance, instead of later traversing
 			   the whole 'symbol_table'.  */
 			special_purpose_functions.push_back (e->key);
-		    }
-		}
-	      else if (type == 2)
-		{
-		  if (fhe)
-		    /* We're not looking for DECLs, only for DEFs.  */
-		    ;
-		  else
-		    {
-		      if (!e->referenced)
-			enqueue_as_unresolved (e);
 		    }
 		}
 	      else
@@ -873,6 +897,9 @@ This program has absolutely no warranty.\n";
       struct symbol_hash_entry *e;
       for (e = unresolved; e; e = e->next)
 	{
+	  assert (!e->included);
+	  assert (e->referenced);
+
 	  if (e->key[0] == '*')
 	    {
 	      /* Special symbols have to be dequeued manually, as the
