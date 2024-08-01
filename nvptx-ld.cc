@@ -889,7 +889,12 @@ This program has absolutely no warranty.\n";
 	      goto error_out;
 	    }
 	  if (verbose)
-	    std::cerr << "Resolving " << e->key << "\n";
+	    {
+	      std::cerr << "Resolving " << e->key << (fhe->pprev ? " also" : "") << " via " << fhe->arname;
+	      if (fhe->name)
+		std::cerr << "::" << fhe->name;
+	      std::cerr << "\n";
+	    }
 	  if (!fhe->pprev)
 	    {
 	      fhe->pprev = &to_add;
