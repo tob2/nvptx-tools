@@ -71,6 +71,14 @@ struct file_hash_entry
   size_t len;
 };
 
+static file_hash_entry file_hash_entry_intrinsic = {
+  NULL, NULL,
+  NULL,
+  "[intrinsic]",
+  NULL,
+  0,
+};
+
 /* Hash and comparison functions for these hash tables.  */
 
 static int hash_string_eq (const void *, const void *);
@@ -409,6 +417,8 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
     struct symbol_hash_entry *e
       = symbol_hash_lookup (symbol_table, xstrdup ("__CTOR_LIST__"), 1);
     assert (!e->included);
+    /* 'file_hash_entry_intrinsic' is not entirely accurate, but close enough.  */
+    e->def = &file_hash_entry_intrinsic;
     e->included = true;
   }
 
@@ -449,6 +459,8 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
     struct symbol_hash_entry *e
       = symbol_hash_lookup (symbol_table, xstrdup ("__DTOR_LIST__"), 1);
     assert (!e->included);
+    /* 'file_hash_entry_intrinsic' is not entirely accurate, but close enough.  */
+    e->def = &file_hash_entry_intrinsic;
     e->included = true;
   }
 
@@ -515,6 +527,7 @@ define_intrinsics (htab_t symbol_table)
       struct symbol_hash_entry *e
 	= symbol_hash_lookup (symbol_table, xstrdup (intrins[ix]), 1);
       assert (!e->included);
+      e->def = &file_hash_entry_intrinsic;
       e->included = true;
     }
 }
@@ -586,15 +599,16 @@ process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_e
 
 	  if (mode == process_refs_defs_mode::scan)
 	    {
+	      /* During scanning, only intrinsics already appear included.  */
+	      if (e->included)
+		assert (e->def == &file_hash_entry_intrinsic);
+
 	      if (type == 2)
 		/* We're not looking for DECLs, only for DEFs.  */
 		;
 	      else if (type == 1)
 		{
-		  if (e->included)
-		    /* Another DEF for something we've already included.  */
-		    ;
-		  else if (e->def)
+		  if (e->def)
 		    /* We've already seen an earlier DEF; ignore this one.  */
 		    ;
 		  else
@@ -642,6 +656,9 @@ process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_e
 	    }
 	  else
 	    abort ();
+
+	  if (e->included)
+	    assert (e->def);
 
 	  continue;
 	}
