@@ -660,8 +660,23 @@ process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_e
 	      else if (type == 1)
 		{
 		  if (e->included)
-		    /* Another DEF for something we've already included.  */
-		    ;
+		    {
+		      assert (e->key[0] != '*');
+
+		      if (ptx_weak_p
+			  || !e->strong_def)
+			/* In total, still not more than one "strong" DEF.  */
+			;
+		      else
+			{
+			  std::cerr << "error, multiple definitions of '" << e->key << "'\n";
+			  std::cerr << "first defined in '" << e->strong_def->arname;
+			  if (e->strong_def->name)
+			    std::cerr << "::" << e->strong_def->name;
+			  std::cerr << "', now found another definition ";
+			  return NULL;
+			}
+		    }
 		  else
 		    {
 		      /* Object files always gets linked in their entirety,
@@ -1023,7 +1038,14 @@ This program has absolutely no warranty.\n";
 	    }
 
 	  const char *fhe_data_ = process_refs_defs (process_refs_defs_mode::link, symbol_table, fhe, fhe->data);
-	  assert (fhe_data_ != NULL);
+	  if (fhe_data_ == NULL)
+	    {
+	      std::cerr << "while linking '" << fhe->arname;
+	      if (fhe->name)
+		std::cerr << "::" << fhe->name;
+	      std::cerr << "'\n";
+	      goto error_out;
+	    }
 	  assert (fhe_data_ == &fhe->data[fhe->len + 1]);
 
 	  if (fwrite (fhe->data, 1, fhe->len, outfile) != fhe->len)
