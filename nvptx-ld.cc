@@ -51,6 +51,8 @@ struct symbol_hash_entry
   struct symbol_hash_entry **pprev, *next;
   /* The file in which it is defined.  */
   struct file_hash_entry *def;
+  /* If 'included', the file in which it has a "strong" DEF (if any).  */
+  const struct file_hash_entry *strong_def;
   int included;
   int referenced;
 };
@@ -420,6 +422,7 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
     assert (!e->included);
     /* 'file_hash_entry_intrinsic' is not entirely accurate, but close enough.  */
     e->def = &file_hash_entry_intrinsic;
+    e->strong_def = e->def;
     e->included = true;
   }
 
@@ -462,6 +465,7 @@ handle_special_purpose_functions (htab_t symbol_table, FILE *outfile)
     assert (!e->included);
     /* 'file_hash_entry_intrinsic' is not entirely accurate, but close enough.  */
     e->def = &file_hash_entry_intrinsic;
+    e->strong_def = e->def;
     e->included = true;
   }
 
@@ -529,6 +533,7 @@ define_intrinsics (htab_t symbol_table)
 	= symbol_hash_lookup (symbol_table, xstrdup (intrins[ix]), 1);
       assert (!e->included);
       e->def = &file_hash_entry_intrinsic;
+      e->strong_def = e->def;
       e->included = true;
     }
 }
@@ -594,15 +599,35 @@ process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_e
 	  if (type == 0)
 	    continue;
 
+	  /* GCC/nvptx currently emits the PTX '.weak' linking directive
+	     without special annotation in the corresponding marker line.
+	     Per 'as', '.weak ' follows directly after the marker line.  */
+	  bool ptx_weak_p = strncmp (ptx, "\n.weak ", 7) == 0;
+	  if (ptx_weak_p)
+	    ptx += 7;
+
 	  char *sym_name = xstrndup (ptx_sym_name_begin, ptx_sym_name_end - ptx_sym_name_begin);
+
 	  struct symbol_hash_entry *e
 	    = symbol_hash_lookup (symbol_table, sym_name, 1);
+
+	  /* Note that 'ptx_weak_p' is *not* considered during resolving.
+	     In particular, a "strong" DEF does *not* override linking of an
+	     object file that we found earlier, that provides a "weak" DEF,
+	     and, once we've got a "weak" DEF 'included', a symbol no longer is
+	     'unresolved', that is, a "strong" DEF that we see later, does
+	     *not* trigger 'enqueue_as_unresolved'.  (But of course, an object
+	     file providing a "strong" DEF of a symbol may get linked in for
+	     other reasons, and thereby override an earlier "weak" DEF.)  */
 
 	  if (mode == process_refs_defs_mode::scan)
 	    {
 	      /* During scanning, only intrinsics already appear included.  */
 	      if (e->included)
-		assert (e->def == &file_hash_entry_intrinsic);
+		{
+		  assert (e->def == &file_hash_entry_intrinsic);
+		  assert (e->strong_def == e->def);
+		}
 
 	      if (type == 2)
 		/* We're not looking for DECLs, only for DEFs.  */
@@ -650,6 +675,15 @@ process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_e
 			   in order of appearance, instead of later traversing
 			   the whole 'symbol_table'.  */
 			special_purpose_functions.push_back (e->key);
+		    }
+
+		  /* Remember the first "strong" DEF we're seeing.  */
+		  if (!e->strong_def
+		      && !ptx_weak_p)
+		    {
+		      assert (e->key[0] != '*');
+
+		      e->strong_def = fhe;
 		    }
 		}
 	      else
@@ -988,7 +1022,7 @@ This program has absolutely no warranty.\n";
 	      std::cerr << " as " << idx++ << "\n";
 	    }
 
-	  const char *fhe_data_ = process_refs_defs (process_refs_defs_mode::link, symbol_table, NULL, fhe->data);
+	  const char *fhe_data_ = process_refs_defs (process_refs_defs_mode::link, symbol_table, fhe, fhe->data);
 	  assert (fhe_data_ != NULL);
 	  assert (fhe_data_ == &fhe->data[fhe->len + 1]);
 

@@ -1,0 +1,3 @@
+// [PREAMBLE]
+// BEGIN VAR DEF: foo
+.weak .global .u64 foo;

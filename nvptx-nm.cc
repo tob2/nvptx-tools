@@ -141,6 +141,7 @@ process_refs_defs (htab_t symbol_table_global, htab_t symbol_table_local, const 
 {
   /* There is no actual symbol table in GCC/nvptx.  We only look for the
      GCC/nvptx-generated linker markers, not for actual PTX-level symbols.
+     (We do look for PTX '.weak', though.)
      We therefore only present the information conveyed by those markers.  */
   while (*ptx != '\0')
     {
@@ -192,7 +193,44 @@ process_refs_defs (htab_t symbol_table_global, htab_t symbol_table_local, const 
 	  if (type == '\0')
 	    continue;
 
+	  /* GCC/nvptx currently emits the PTX '.weak' linking directive
+	     without special annotation in the corresponding marker line.
+	     Per 'as', '.weak ' follows directly after the marker line.  */
+	  bool ptx_weak_p = strncmp (ptx, "\n.weak ", 7) == 0;
+	  if (ptx_weak_p)
+	    ptx += 7;
+
 	  char *sym_name = xstrndup (ptx_sym_name_begin, ptx_sym_name_end - ptx_sym_name_begin);
+
+	  if (ptx_weak_p)
+	    {
+	      if (!global_p)
+		{
+		  const char *type_s;
+		  if (type == 'd')
+		    type_s = "VAR DEF";
+		  else if (type == 't')
+		    type_s = "FUNCTION DEF";
+		  else if (type == 'U')
+		    type_s = "DECL";
+		  else
+		    abort ();
+		  std::cerr << "error, non-GLOBAL " << type_s << " is \"weak\": '" << sym_name << "'\n";
+
+		  free (sym_name);
+
+		  return NULL;
+		}
+	      else if (type == 'D')
+		type = 'V';
+	      else if (type == 'T')
+		type = 'W';
+	      else if (type == 'U')
+		type = 'w';
+	      else
+		abort ();
+	    }
+
 	  htab_t symbol_table
 	    = global_p ? symbol_table_global : symbol_table_local;
 	  struct symbol_hash_entry *e
@@ -203,14 +241,27 @@ process_refs_defs (htab_t symbol_table_global, htab_t symbol_table_local, const 
 	      /* First time we're seeing this.  */
 	      e->type = type;
 	    }
-	  else if (e->type == 'U')
+	  else if (e->type == 'U'
+		   || e->type == 'w')
 	    {
 	      /* We've seen this before, but not a definition.  */
 	      e->type = type;
 	    }
-	  else if (type == 'U')
+	  else if (type == 'U'
+		   || type == 'w')
 	    {
 	      /* We've already seen a definition.  */
+	    }
+	  else if ((type == 'V' && e->type == 'D')
+		   || (type == 'W' && e->type == 'T'))
+	    {
+	      /* This "weak" definition doesn't affect the former "strong" one.  */
+	    }
+	  else if ((type == 'D' && e->type == 'V')
+		   || (type == 'T' && e->type == 'W'))
+	    {
+	      /* This "strong" definition overrides the former "weak" one.  */
+	      e->type = type;
 	    }
 	  else
 	    {
@@ -307,12 +358,15 @@ numeric_forward (const void *P_x, const void *P_y)
   const symbol_hash_entry *xe = *(const symbol_hash_entry **) P_x;
   const symbol_hash_entry *ye = *(const symbol_hash_entry **) P_y;
 
-  if (xe->type == 'U')
+  if (xe->type == 'U'
+      || xe->type == 'w')
     {
-      if (ye->type != 'U')
+      if (!(ye->type == 'U'
+	    || ye->type == 'w'))
 	return -1;
     }
-  else if (ye->type == 'U')
+  else if (ye->type == 'U'
+	   || ye->type == 'w')
     return 1;
 #if 0
   /* There are no symbol values in GCC/nvptx.  */
@@ -358,7 +412,8 @@ print_value (void *val)
 static void
 print_symbol_info_bsd (symbol_hash_entry *sym)
 {
-  if (sym->type == 'U')
+  if (sym->type == 'U'
+      || sym->type == 'w')
     {
       if (print_width == 64)
 	printf ("        ");

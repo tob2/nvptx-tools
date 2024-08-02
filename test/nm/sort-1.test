@@ -1,4 +1,4 @@
-Test sorting options, object files individually (in contrast to 'sort-2.test').
+Test sorting options, object files individually (in contrast to 'sort-2-*.test').
 
 
 Default.
@@ -13,6 +13,14 @@ RUN: ! test -s %t.stderr
 
 RUN: %target_nm_cmd %S/libc/libc_a-memset.o > %t.stdout 2> %t.stderr
 RUN: cmp %S/libc/libc_a-memset.o.nm.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd %S/../weak-1-DECL_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %S/../weak-1-DECL_weak.o.nm.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd %S/../weak-1-DEF_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %S/../weak-1-DEF_weak.o.nm.golden %t.stdout
 RUN: ! test -s %t.stderr
 
 
@@ -38,6 +46,14 @@ RUN: %target_nm_cmd -r %S/libc/libc_a-memset.o > %t.stdout 2> %t.stderr
 RUN: cmp %S/libc/libc_a-memset.o.nm.golden %t.stdout
 RUN: ! test -s %t.stderr
 
+RUN: %env_LC_COLLATE=C_target_nm_cmd -r %S/../weak-1-DECL_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %S/../weak-1-DECL_weak.o.nm_-r.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -r %S/../weak-1-DEF_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %S/../weak-1-DEF_weak.o.nm_-r.golden %t.stdout
+RUN: ! test -s %t.stderr
+
 
 '--numeric-sort'/'-n'.
 
@@ -61,6 +77,18 @@ RUN: %target_nm_cmd -n %S/libc/libc_a-memset.o > %t.stdout 2> %t.stderr
 RUN: cmp %S/libc/libc_a-memset.o.nm.golden %t.stdout
 RUN: ! test -s %t.stderr
 
+RUN: cp %S/../weak-1-DECL_weak.o.nm.golden %t.stdout.golden
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -n %S/../weak-1-DECL_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %t.stdout.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: cp %S/../weak-1-DEF_weak.o.nm.golden %t.stdout.golden
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -n %S/../weak-1-DEF_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %t.stdout.golden %t.stdout
+RUN: ! test -s %t.stderr
+
 
 '--numeric-sort'/'-n', '--reverse-sort'/'-r'.
 
@@ -82,6 +110,18 @@ RUN: ! test -s %t.stderr
 
 RUN: %target_nm_cmd -nr %S/libc/libc_a-memset.o > %t.stdout 2> %t.stderr
 RUN: cmp %S/libc/libc_a-memset.o.nm.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: cp %S/../weak-1-DECL_weak.o.nm_-r.golden %t.stdout.golden
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -nr %S/../weak-1-DECL_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %t.stdout.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: cp %S/../weak-1-DEF_weak.o.nm_-r.golden %t.stdout.golden
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -nr %S/../weak-1-DEF_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: cmp %t.stdout.golden %t.stdout
 RUN: ! test -s %t.stderr
 
 
@@ -113,4 +153,18 @@ RUN: ! test -s %t.stderr
 
 RUN: %target_nm_cmd -p %S/libc/libc_a-memset.o > %t.stdout 2> %t.stderr
 RUN: cmp %S/libc/libc_a-memset.o.nm.golden %t.stdout
+RUN: ! test -s %t.stderr
+
+RUN: sort < %S/../weak-1-DECL_weak.o.nm.golden > %t.weak-1-DECL_weak.o.nm.golden.sorted
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -p %S/../weak-1-DECL_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: sort < %t.stdout > %t.stdout.sorted
+RUN: cmp %t.weak-1-DECL_weak.o.nm.golden.sorted %t.stdout.sorted
+RUN: ! test -s %t.stderr
+
+RUN: sort < %S/../weak-1-DEF_weak.o.nm.golden > %t.weak-1-DEF_weak.o.nm.golden.sorted
+
+RUN: %env_LC_COLLATE=C_target_nm_cmd -p %S/../weak-1-DEF_weak.o.golden > %t.stdout 2> %t.stderr
+RUN: sort < %t.stdout > %t.stdout.sorted
+RUN: cmp %t.weak-1-DEF_weak.o.nm.golden.sorted %t.stdout.sorted
 RUN: ! test -s %t.stderr

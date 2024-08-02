@@ -1,0 +1,3 @@
+// [PREAMBLE]
+// BEGIN FUNCTION DECL: foo
+.weak .func foo;
