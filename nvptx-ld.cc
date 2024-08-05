@@ -34,6 +34,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <set>
 
 #include "version.h"
 
@@ -680,6 +681,9 @@ Options:\n\
   -l LIBRARY            Link with LIBRARY\n\
   -L DIR                Search for libraries in DIR\n\
   --help                Print this help and exit\n\
+  --ignore-unresolved-symbol SYMBOL\n\
+                        Unresolved SYMBOL will not cause an error\n"
+	   /* "[...] or warning" for '--warn-unresolved-symbols' (etc.)?  */ "\
   --version             Print version number and exit\n\
 \n\
 Report bugs to " << REPORT_BUGS_TO << ".\n";
@@ -687,10 +691,12 @@ Report bugs to " << REPORT_BUGS_TO << ".\n";
 }
 
 #define OPT_hash_style 256
+#define OPT_ignore_unresolved_symbol 257
 
 static const struct option long_options[] = {
   {"hash-style", required_argument, 0, OPT_hash_style },
   {"help", no_argument, 0, 'h' },
+  {"ignore-unresolved-symbol", required_argument, 0, OPT_ignore_unresolved_symbol },
   {"version", no_argument, 0, 'V' },
   {0, 0, 0, 0 }
 };
@@ -702,6 +708,7 @@ main (int argc, char **argv)
   FILE *outfile = NULL;
   std::list<std::string> libraries;
   std::list<std::string> libpaths;
+  std::set<std::string> unresolved_ignore;
 
   int o;
   int option_index = 0;
@@ -742,6 +749,9 @@ This program has absolutely no warranty.\n";
 	  /* Ignore '--hash-style'; see
 	     <https://github.com/SourceryTools/nvptx-tools/pull/44>
 	     "Handle --hash-style argument in nvptx-ld".  */
+	  break;
+	case OPT_ignore_unresolved_symbol:
+	  unresolved_ignore.emplace (optarg);
 	  break;
 	default:
 	  usage (std::cerr, 1);
@@ -937,8 +947,19 @@ This program has absolutely no warranty.\n";
 	  struct file_hash_entry *fhe = e->def;
 	  if (!fhe)
 	    {
-	      std::cerr << "unresolved symbol " << e->key << "\n";
-	      goto error_out;
+	      if (unresolved_ignore.count (e->key))
+		{
+		  if (verbose)
+		    std::cerr << "unresolved symbol " << e->key << " (ignored)\n";
+		  dequeue_unresolved (e);
+
+		  continue;
+		}
+	      else
+		{
+		  std::cerr << "unresolved symbol " << e->key << "\n";
+		  goto error_out;
+		}
 	    }
 	  if (verbose)
 	    {
@@ -954,7 +975,6 @@ This program has absolutely no warranty.\n";
 	      to_add = fhe;
 	    }
 	}
-      assert (to_add != NULL);
 
       struct file_hash_entry *fhe;
       for (fhe = to_add; fhe; fhe = fhe->next)
