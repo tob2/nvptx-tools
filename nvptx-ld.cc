@@ -521,13 +521,19 @@ define_intrinsics (htab_t symbol_table)
 
 /* Process GCC/nvptx-generated linker markers.
 
-   During scanning ('fhe' is provided), capture in 'symbol_table' that 'fhe'
-   defines global symbols in 'ptx'; during linking ('fhe' isn't provided),
+   During scanning, capture in 'symbol_table' that 'fhe'
+   defines global symbols in 'ptx'; during linking,
    maintain 'symbol_table' for global symbols in 'ptx':
    'enqueue_as_unresolved', 'dequeue_unresolved'.  */
 
+enum class process_refs_defs_mode
+{
+  scan,
+  link,
+};
+
 static const char *
-process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
+process_refs_defs (process_refs_defs_mode mode, htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 {
   while (*ptx != '\0')
     {
@@ -578,7 +584,7 @@ process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 	  struct symbol_hash_entry *e
 	    = symbol_hash_lookup (symbol_table, sym_name, 1);
 
-	  if (fhe)
+	  if (mode == process_refs_defs_mode::scan)
 	    {
 	      if (type == 2)
 		/* We're not looking for DECLs, only for DEFs.  */
@@ -597,7 +603,7 @@ process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 	      else
 		abort ();
 	    }
-	  else /* !fhe */
+	  else if (mode == process_refs_defs_mode::link)
 	    {
 	      if (type == 2)
 		{
@@ -634,6 +640,8 @@ process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
 	      else
 		abort ();
 	    }
+	  else
+	    abort ();
 
 	  continue;
 	}
@@ -803,7 +811,7 @@ This program has absolutely no warranty.\n";
 	std::cerr << "Enqueueing " << name << "\n";
       file_hash_entry *fhe = file_hash_new (buf, len, name.c_str (), NULL);
       fhe_to_clean_up.push_front (fhe);
-      const char *buf_ = process_refs_defs (symbol_table, fhe, buf);
+      const char *buf_ = process_refs_defs (process_refs_defs_mode::scan, symbol_table, fhe, buf);
       if (buf_ == NULL)
 	{
 	  assert (!fhe->name);
@@ -862,7 +870,7 @@ This program has absolutely no warranty.\n";
 
 	  file_hash_entry *fhe = file_hash_new (p, len, name.c_str (), ar.get_name ());
 	  fhe_to_clean_up.push_front (fhe);
-	  const char *p_ = process_refs_defs (symbol_table, fhe, p);
+	  const char *p_ = process_refs_defs (process_refs_defs_mode::scan, symbol_table, fhe, p);
 	  if (p_ == NULL)
 	    {
 	      std::cerr << "while scanning '" << fhe->arname << "::" << fhe->name << "'\n";
@@ -943,7 +951,7 @@ This program has absolutely no warranty.\n";
 	      std::cerr << " as " << idx++ << "\n";
 	    }
 
-	  const char *fhe_data_ = process_refs_defs (symbol_table, NULL, fhe->data);
+	  const char *fhe_data_ = process_refs_defs (process_refs_defs_mode::link, symbol_table, NULL, fhe->data);
 	  assert (fhe_data_ != NULL);
 	  assert (fhe_data_ == &fhe->data[fhe->len + 1]);
 
