@@ -594,6 +594,7 @@ This program has absolutely no warranty.\n";
   if (inputfiles.size () > 1)
     filename_per_file = 1;
 
+  /* Scan 'inputfiles'.  */
   for (std::list<std::string>::const_iterator iterator = inputfiles.begin(), end = inputfiles.end();
        iterator != end;
        ++iterator)
@@ -639,7 +640,7 @@ This program has absolutely no warranty.\n";
 	  buf_ = process_refs_defs (symbol_table_global, symbol_table_local, buf_);
 	  if (buf_ == NULL)
 	    {
-	      std::cerr << "while processing '" << name << "'\n";
+	      std::cerr << "while scanning '" << name << "'\n";
 	      break;
 	    }
 	}

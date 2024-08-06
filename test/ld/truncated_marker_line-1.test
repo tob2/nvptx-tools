@@ -22,7 +22,7 @@ Inject truncated marker line.
 
 RUN: cp %t/o/f2.o %t/o/f2_.o
 RUN: printf '// BEGIN GLOBAL FUNCTION DEF: fun' >> %t/o/f2_.o
-RUN: printf 'error, truncated marker line:\n// BEGIN GLOBAL FUNCTION DEF: fun\nwhile processing '\''o/f2_.o'\''\n' >> %t/o/f2_.o.ld.stderr.golden
+RUN: printf 'error, truncated marker line:\n// BEGIN GLOBAL FUNCTION DEF: fun\nwhile scanning '\''o/f2_.o'\''\n' >> %t/o/f2_.o.ld.stderr.golden
 
 
 Archive.

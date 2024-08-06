@@ -514,9 +514,10 @@ define_intrinsics (htab_t symbol_table)
 
 /* Process GCC/nvptx-generated linker markers.
 
-   If 'fhe' is provided, capture in 'symbol_table' that 'fhe' defines global
-   symbols in 'ptx'; if 'fhe' isn't provided, maintain 'symbol_table' for
-   global symbols in 'ptx': 'enqueue_as_unresolved', 'dequeue_unresolved'.  */
+   During scanning ('fhe' is provided), capture in 'symbol_table' that 'fhe'
+   defines global symbols in 'ptx'; during linking ('fhe' isn't provided),
+   maintain 'symbol_table' for global symbols in 'ptx':
+   'enqueue_as_unresolved', 'dequeue_unresolved'.  */
 
 static const char *
 process_refs_defs (htab_t symbol_table, file_hash_entry *fhe, const char *ptx)
@@ -738,6 +739,7 @@ This program has absolutely no warranty.\n";
       *iterator = name_resolved;
     }
 
+  /* Scan 'inputfiles'.  */
   for (std::list<std::string>::const_iterator iterator = inputfiles.begin(), end = inputfiles.end();
        iterator != end;
        ++iterator)
@@ -786,7 +788,7 @@ This program has absolutely no warranty.\n";
       const char *buf_ = process_refs_defs (symbol_table, NULL, buf);
       if (buf_ == NULL)
 	{
-	  std::cerr << "while processing '" << name << "'\n";
+	  std::cerr << "while scanning '" << name << "'\n";
 	  delete[] buf;
 	  goto error_out;
 	}
@@ -801,6 +803,7 @@ This program has absolutely no warranty.\n";
      file may be found via different paths.  */
   libraries.sort ();
   libraries.unique ();
+  /* Scan 'libraries'.  */
   for (std::list<std::string>::const_iterator iterator = libraries.begin(), end = libraries.end();
        iterator != end;
        ++iterator)
@@ -840,7 +843,7 @@ This program has absolutely no warranty.\n";
 	  const char *p_ = process_refs_defs (symbol_table, fhe, p);
 	  if (p_ == NULL)
 	    {
-	      std::cerr << "while processing '" << fhe->arname << "::" << fhe->name << "'\n";
+	      std::cerr << "while scanning '" << fhe->arname << "::" << fhe->name << "'\n";
 	      fclose (f);
 	      goto error_out;
 	    }
@@ -849,7 +852,7 @@ This program has absolutely no warranty.\n";
       fclose (f);
     }
 
-  /* Resolve.  */
+  /* Resolve and link.  */
   {
   bool first_resolve_run = true;
  resolve:
@@ -879,6 +882,7 @@ This program has absolutely no warranty.\n";
 	    }
 	}
       assert (to_add != NULL);
+
       struct file_hash_entry *fhe;
       for (fhe = to_add; fhe; fhe = fhe->next)
 	{

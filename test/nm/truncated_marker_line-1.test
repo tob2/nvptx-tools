@@ -31,7 +31,7 @@ RUN: %target_ld_cmd -o %t/1-1,1-2-C.nvptx %t/o/1-1-C.o %t/o/1-2-C.o -L%t/libc -l
 Inject truncated marker line.
 
 RUN: printf '\n// BEGIN GLOBAL FUNCTION DEF: fun' > %t/tml
-RUN: printf 'error, truncated marker line:\n// BEGIN GLOBAL FUNCTION DEF: fun\nwhile processing '\''[FILE]'\''\n' > %t/tmp.nm.stderr.golden
+RUN: printf 'error, truncated marker line:\n// BEGIN GLOBAL FUNCTION DEF: fun\nwhile scanning '\''[FILE]'\''\n' > %t/tmp.nm.stderr.golden
 
 Append directly to '*.o'.
 
