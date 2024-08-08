@@ -915,27 +915,44 @@ parse_file (htab_t symbol_table, Token *tok, std::ostream &error_stream)
   return tok;
 }
 
-static void
-output_symbol (FILE *out, symbol *e)
+static bool
+output_symbol (FILE *out, symbol *e, std::ostream &error_stream)
 {
   if (e->emitted)
-    return;
+    return true;
   if (e->pending)
-    fatal_error ("circular reference in variable initializers");
+    {
+      error_stream << "circular reference in variable initializers";
+      return false;
+    }
   e->pending = true;
   std::list<symbol *>::iterator i;
   for (i = e->deps.begin (); i != e->deps.end (); i++)
-    output_symbol (out, *i);
+    if (!output_symbol (out, *i, error_stream))
+      return false;
   e->pending = false;
   write_stmts (out, rev_stmts (e->stmts));
   e->emitted = true;
+  return true;
 }
+
+struct traverse_data
+{
+  FILE *out;
+  std::ostream &error_stream;
+  bool error_seen;
+};
 
 static int
 traverse (void **slot, void *data)
 {
+  traverse_data *tdata = (traverse_data *) data;
   symbol *e = *(symbol **)slot;
-  output_symbol ((FILE *)data, e);
+  if (!output_symbol (tdata->out, e, tdata->error_stream))
+    {
+      tdata->error_seen = true;
+      return 0;
+    }
   return 1;
 }
 
@@ -990,7 +1007,12 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
   while (tok->kind);
 
   write_stmts (out, rev_stmts (decls));
-  htab_traverse (symbol_table, traverse, (void *)out);
+  {
+    traverse_data tdata = { out, error_stream, false };
+    htab_traverse (symbol_table, traverse, &tdata);
+    if (tdata.error_seen)
+      fatal_error (error_stream.str ());
+  }
   write_stmts (out, rev_stmts (fns));
 
   htab_delete (symbol_table);
