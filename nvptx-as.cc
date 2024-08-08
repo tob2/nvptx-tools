@@ -264,7 +264,7 @@ read_file (FILE *stream)
    If we read a comment, append it to the comments block. */
 
 static Token *
-tokenize (const char *ptr)
+tokenize (const char *ptr, std::ostream &error_stream)
 {
   unsigned alloc = 1000;
   unsigned num = 0;
@@ -287,9 +287,9 @@ tokenize (const char *ptr)
       c = (unsigned char)*ptr++;
       if (c > 127)
 	{
-	  std::ostringstream error_stream;
 	  error_stream << "non-ascii character encountered: " << std::hex << std::showbase << (int) c;
-	  fatal_error (error_stream.str ());
+	  XDELETEVEC (toks);
+	  return NULL;
 	}
       switch (kind = c)
 	{
@@ -945,6 +945,8 @@ traverse (void **slot, void *data)
 static void
 process (FILE *in, FILE *out, int *verify, const char *inname)
 {
+  std::ostringstream error_stream;
+
   const char *input = read_file (in);
 
   /* As expected by GCC, handle an empty input file specially.  See
@@ -962,7 +964,9 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
       return;
     }
 
-  Token *tok = tokenize (input);
+  Token *tok = tokenize (input, error_stream);
+  if (!tok)
+    fatal_error (error_stream.str ());
   Token *tok_to_free = tok;
 
   /* Do minimalistic verification, so that we reliably reject (certain classes
