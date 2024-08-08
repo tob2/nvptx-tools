@@ -749,7 +749,7 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 }
 
 static Token *
-parse_file (htab_t symbol_table, Token *tok)
+parse_file (htab_t symbol_table, Token *tok, std::ostream &error_stream)
 {
   Stmt *comment = 0;
   bool is_map_directive = false;
@@ -870,9 +870,10 @@ parse_file (htab_t symbol_table, Token *tok)
 			   ? start->ptr
 			   : strndup (start->ptr, eol - start->ptr));
 		      {
-			std::ostringstream error_stream;
 			error_stream << "expected identifier in line '" << line << "'";
-			fatal_error (error_stream.str ());
+			if (line != start->ptr)
+			  free ((void *) line);
+			return NULL;
 		      }
 		    }
 		  /* variable */
@@ -981,7 +982,11 @@ process (FILE *in, FILE *out, int *verify, const char *inname)
     = htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
 
   do
-    tok = parse_file (symbol_table, tok);
+    {
+      tok = parse_file (symbol_table, tok, error_stream);
+      if (!tok)
+	fatal_error (error_stream.str ());
+    }
   while (tok->kind);
 
   write_stmts (out, rev_stmts (decls));
