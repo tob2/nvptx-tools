@@ -4,7 +4,9 @@ CPPFLAGS_EXTRA = -DPKGVERSION="\"@PKGVERSION@\"" \
 		 -DREPORT_BUGS_TO="\"@REPORT_BUGS_TO@\""
 DEFS = @DEFS@
 CPPFLAGS_ALL = $(DEFS) $(CPPFLAGS) $(CPPFLAGS_EXTRA)
+WARN_CXXFLAGS = @WARN_CXXFLAGS@
 CXXFLAGS = @CXXFLAGS@
+CXXFLAGS_ALL = $(CXXFLAGS) $(WARN_CXXFLAGS)
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 DL_LIBS = @DL_LIBS@
@@ -56,22 +58,22 @@ libiberty.stmp:
 	: > $@
 
 nvptx-none-as: $(srcdir)/nvptx-as.cc libiberty.stmp $(srcdir)/version.h
-	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS) -I$(srcdir)/include \
+	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS_ALL) -I$(srcdir)/include \
 		$< -o $@ \
 		-Llibiberty -liberty $(LDFLAGS) $(LIBS)
 
 nvptx-none-ld: $(srcdir)/nvptx-ld.cc libiberty.stmp $(srcdir)/version.h
-	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS) -I$(srcdir)/include \
+	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS_ALL) -I$(srcdir)/include \
 		$< -o $@ \
 		-Llibiberty -liberty $(LDFLAGS) $(LIBS)
 
 nvptx-none-nm: $(srcdir)/nvptx-nm.cc libiberty.stmp $(srcdir)/version.h
-	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS) -I$(srcdir)/include \
+	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS_ALL) -I$(srcdir)/include \
 		$< -o $@ \
 		-Llibiberty -liberty $(LDFLAGS) $(LIBS)
 
 nvptx-none-run: $(srcdir)/nvptx-run.cc libiberty.stmp $(srcdir)/version.h
-	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS) -I$(srcdir)/include \
+	$(CXX) $(CPPFLAGS_ALL) $(CXXFLAGS_ALL) -I$(srcdir)/include \
 		$< -o $@ \
 		-Llibiberty -liberty $(LDFLAGS) $(LIBS) \
 		$(NVPTX_RUN_CPPFLAGS) $(NVPTX_RUN_LDFLAGS)
