@@ -1,5 +1,7 @@
 /* A tool to run PTX binaries compiled with -mmainkernel.
    Copyright (C) 2014, 2015 Mentor Graphics
+   Copyright (C) 2016 Ivannikov Institute for System Programming of the Russian Academy of Sciences
+   Copyright (C) 2022, 2023 Siemens
 
    This program is free software; you can redistribute it and/or
    modify it under the terms of the GNU General Public License as
@@ -286,7 +288,7 @@ main (int argc, char **argv)
 	case 'V':
 	  std::cout << "\
 nvptx-none-run " << PKGVERSION << NVPTX_TOOLS_VERSION << "\n\
-Copyright 2015 Mentor Graphics\n\
+Copyright (C) 2024 The nvptx-tools Developers\n\
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
 This program is free software; you may redistribute it under the terms of\n\
 the GNU General Public License version 3 or later.\n\

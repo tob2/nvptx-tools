@@ -1,6 +1,7 @@
 # DejaGnu board file for nvptx-none.
 
 # Copyright (C) 2015 Mentor Graphics
+# Copyright (C) 2024 BayLibre
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
