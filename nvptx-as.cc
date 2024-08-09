@@ -221,9 +221,6 @@ struct Stmt
 
 #define append_stmt(V, S) ((S)->next = *(V), *(V) = (S))
 
-static Stmt *decls;
-static Stmt *fns;
-
 /* Read the whole input file.  It will be NUL terminated (but
    remember, there could be a NUL in the file itself.  */
 
@@ -624,7 +621,7 @@ parse_line_nosemi (unsigned vis, Token *tok, Stmt **append_where)
 }
 
 static Token *
-parse_insn (Token *tok)
+parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 {
   unsigned depth = 0;
 
@@ -750,7 +747,7 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 }
 
 static Token *
-parse_file (htab_t symbol_table, Token *tok, std::ostream &error_stream)
+parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostream &error_stream)
 {
   Stmt *comment = 0;
   bool is_map_directive = false;
@@ -854,7 +851,7 @@ parse_file (htab_t symbol_table, Token *tok, std::ostream &error_stream)
 		  stmt->vis |= V_prefix_comment;
 		}
 	      append_stmt (&fns, stmt);
-	      tok = parse_insn (tok);
+	      tok = parse_insn (decls, fns, tok);
 	    }
 	  else
 	    {
@@ -996,13 +993,15 @@ process (FILE *in, std::ostream &out_stream, int *verify, const char *inname)
 	}
     }
 
+  Stmt *decls = NULL;
   /* Initial symbol table size.  */
   const size_t n_symbols_init = 500;
   htab_t symbol_table = htab_create (n_symbols_init, hash_string_hash, hash_string_eq, symbol_hash_free);
+  Stmt *fns = NULL;
 
   do
     {
-      tok = parse_file (symbol_table, tok, error_stream);
+      tok = parse_file (decls, symbol_table, fns, tok, error_stream);
       if (!tok)
 	fatal_error (error_stream.str ());
     }
