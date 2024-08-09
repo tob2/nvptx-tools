@@ -8,5 +8,4 @@ RUN: cmp %S/guard_predicates-1.o.golden %t.o
 ..., and, in particular that the 'as' processing is idempotent.
 
 RUN: %target_as_cmd --no-verify %S/guard_predicates-1.o.golden -o %t.o
-..., which, currently, it is not.
-RUN: cmp %S/guard_predicates-1.o_.golden %t.o
+RUN: cmp %S/guard_predicates-1.o.golden %t.o

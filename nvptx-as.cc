@@ -671,7 +671,10 @@ parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 	case '@':
 	  tok->space = 0;
 	  if (tok->kind == '!')
-	    tok++;
+	    {
+	      tok++;
+	      tok->space = 0;
+	    }
 	  tok++;
 	  s = V_pred;
 	  break;
