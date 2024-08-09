@@ -593,9 +593,10 @@ write_stmt (std::ostream &out_stream, const Stmt *stmt)
       if ((stmt->vis & V_mask) == V_comment)
 	out_stream << "//";
       write_token (out_stream, tok);
-      if ((stmt->vis & V_mask) == V_pred)
-	out_stream << ' ';
     }
+  if ((stmt->vis & V_mask) == V_pred)
+    /* Space after the guard predicate.  */
+    out_stream << ' ';
 }
 
 static void
@@ -669,12 +670,14 @@ parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 	  break;
 
 	case '@':
-	  tok->space = 0;
 	  if (tok->kind == '!')
 	    {
-	      tok++;
+	      /* No space before '!'.  */
 	      tok->space = 0;
+	      tok++;
 	    }
+	  /* No space before the predicate variable.  */
+	  tok->space = 0;
 	  tok++;
 	  s = V_pred;
 	  break;
