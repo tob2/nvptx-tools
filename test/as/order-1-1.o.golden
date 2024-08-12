@@ -19,10 +19,10 @@
 .extern .shared .u64 __nvptx_stacks[32];
 // BEGIN GLOBAL VAR DECL: __nvptx_uni
 .extern .shared .u32 __nvptx_uni[32];
-// BEGIN GLOBAL VAR DEF: b$linkptr
-.visible .global .align 8 .u64 b$linkptr[1];
 // BEGIN GLOBAL VAR DEF: i$linkptr
 .visible .global .align 8 .u64 i$linkptr[1];
+// BEGIN GLOBAL VAR DEF: b$linkptr
+.visible .global .align 8 .u64 b$linkptr[1];
 // BEGIN GLOBAL VAR DEF: c$linkptr
 .visible .global .align 8 .u64 c$linkptr[1];
 // BEGIN GLOBAL VAR DEF: a$linkptr

@@ -42,6 +42,7 @@
 #include <hashtab.h>
 
 #include <list>
+#include <vector>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -147,7 +148,7 @@ hash_string_hash (const void *e_p)
    Takes ownership of STRING.  */
 
 static symbol *
-symbol_hash_lookup (htab_t symbol_table, char *string)
+symbol_hash_lookup (htab_t symbol_table, std::vector<symbol *> &symbols, char *string)
 {
   symbol **e;
   e = (symbol **) htab_find_slot_with_hash (symbol_table, string,
@@ -159,7 +160,10 @@ symbol_hash_lookup (htab_t symbol_table, char *string)
       return NULL;
     }
   if (*e == NULL)
-    *e = new symbol (string);
+    {
+      *e = new symbol (string);
+      symbols.push_back (*e);
+    }
   else
     free (string);
 
@@ -699,7 +703,7 @@ parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 }
 
 static Token *
-parse_init (htab_t symbol_table, Token *tok, symbol *sym)
+parse_init (htab_t symbol_table, std::vector<symbol *> &symbols, Token *tok, symbol *sym)
 {
   for (;;)
     {
@@ -724,7 +728,7 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 	if (tok->kind == K_symbol || tok->kind == K_ident)
 	  def_tok = tok;
       if (def_tok)
-	sym->deps.push_back (symbol_hash_lookup (symbol_table,
+	sym->deps.push_back (symbol_hash_lookup (symbol_table, symbols,
 						 xstrndup (def_tok->ptr,
 							   def_tok->len)));
       tok[1].space = 0;
@@ -745,7 +749,7 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 }
 
 static Token *
-parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostream &error_stream)
+parse_file (Stmt *&decls, htab_t symbol_table, std::vector<symbol *> &symbols, Stmt *&fns, Token *tok, std::ostream &error_stream)
 {
   Stmt *comment = 0;
   bool is_map_directive = false;
@@ -870,7 +874,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 		    }
 
 		  /* variable */
-		  symbol *def = symbol_hash_lookup (symbol_table,
+		  symbol *def = symbol_hash_lookup (symbol_table, symbols,
 						    xstrndup (def_token->ptr, def_token->len));
 		  Stmt *stmt = alloc_stmt (vis, start, tok);
 		  if (comment)
@@ -880,7 +884,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 		    }
 		  append_stmt (&def->stmts, stmt);
 		  if (assign)
-		    tok = parse_init (symbol_table, tok, def);
+		    tok = parse_init (symbol_table, symbols, tok, def);
 		}
 	      else
 		{
@@ -911,7 +915,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 }
 
 static bool
-output_symbol (std::ostream &out_stream, symbol *e, std::ostream &error_stream)
+symbol_order_deps (std::vector<const symbol *> &symbols_out, symbol *e, std::ostream &error_stream)
 {
   if (e->emitted)
     return true;
@@ -923,32 +927,12 @@ output_symbol (std::ostream &out_stream, symbol *e, std::ostream &error_stream)
   e->pending = true;
   std::list<symbol *>::iterator i;
   for (i = e->deps.begin (); i != e->deps.end (); i++)
-    if (!output_symbol (out_stream, *i, error_stream))
+    if (!symbol_order_deps (symbols_out, *i, error_stream))
       return false;
   e->pending = false;
-  write_stmts (out_stream, rev_stmts (e->stmts));
+  symbols_out.push_back (e);
   e->emitted = true;
   return true;
-}
-
-struct traverse_data
-{
-  std::ostream &out_stream;
-  std::ostream &error_stream;
-  bool error_seen;
-};
-
-static int
-traverse (void **slot, void *data)
-{
-  traverse_data *tdata = (traverse_data *) data;
-  symbol *e = *(symbol **)slot;
-  if (!output_symbol (tdata->out_stream, e, tdata->error_stream))
-    {
-      tdata->error_seen = true;
-      return 0;
-    }
-  return 1;
 }
 
 static void
@@ -994,25 +978,40 @@ process (FILE *in, std::ostream &out_stream, int *verify, const char *inname)
   /* Initial symbol table size.  */
   const size_t n_symbols_init = 500;
   htab_t symbol_table = htab_create (n_symbols_init, hash_string_hash, hash_string_eq, symbol_hash_free);
+  /* Symbols, in order of appearance.  */
+  std::vector<symbol *> symbols;
+  symbols.reserve (n_symbols_init);
   Stmt *fns = NULL;
 
   do
     {
-      tok = parse_file (decls, symbol_table, fns, tok, error_stream);
+      tok = parse_file (decls, symbol_table, symbols, fns, tok, error_stream);
       if (!tok)
 	fatal_error (error_stream.str ());
     }
   while (tok->kind);
 
-  write_stmts (out_stream, rev_stmts (decls));
-  {
-    traverse_data tdata = { out_stream, error_stream, false };
-    htab_traverse (symbol_table, traverse, &tdata);
-    if (tdata.error_seen)
+  /* Actual number of symbols.  */
+  const size_t n_symbols = htab_elements (symbol_table);
+  /* All symbols handled.  */
+  assert (symbols.size () == n_symbols);
+
+  /* Symbols, in order of output.  */
+  std::vector<const symbol *> symbols_out;
+  symbols_out.reserve (n_symbols);
+  for (symbol *e : symbols)
+    if (!symbol_order_deps (symbols_out, e, error_stream))
       fatal_error (error_stream.str ());
-  }
+  /* All symbols emitted.  */
+  assert (symbols_out.size () == n_symbols);
+
+  write_stmts (out_stream, rev_stmts (decls));
+  for (const symbol *e : symbols_out)
+    write_stmts (out_stream, rev_stmts (e->stmts));
   write_stmts (out_stream, rev_stmts (fns));
 
+  symbols_out.clear ();
+  symbols.clear ();
   htab_delete (symbol_table);
 
   while (!heaps.empty ())
