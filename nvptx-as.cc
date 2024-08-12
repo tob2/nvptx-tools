@@ -149,10 +149,10 @@ hash_string_hash (const void *e_p)
 static symbol *
 symbol_hash_lookup (htab_t symbol_table, char *string)
 {
-  void **e;
-  e = htab_find_slot_with_hash (symbol_table, string,
-                                (*htab_hash_string) (string),
-                                INSERT);
+  symbol **e;
+  e = (symbol **) htab_find_slot_with_hash (symbol_table, string,
+					    (*htab_hash_string) (string),
+					    INSERT);
   if (e == NULL)
     {
       free (string);
@@ -163,7 +163,7 @@ symbol_hash_lookup (htab_t symbol_table, char *string)
   else
     free (string);
 
-  return (symbol *) *e;
+  return *e;
 }
 
 enum Kind
