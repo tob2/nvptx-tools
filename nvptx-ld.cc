@@ -816,8 +816,9 @@ This program has absolutely no warranty.\n";
   /* List of 'file_hash_entry' instances to clean up when we're done.  */
   std::list<file_hash_entry *> fhe_to_clean_up;
 
-  htab_t symbol_table
-    = htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
+  /* Initial symbol table size.  */
+  const size_t n_symbols_init = 500;
+  htab_t symbol_table = htab_create (n_symbols_init, hash_string_hash, hash_string_eq, symbol_hash_free);
 
   define_intrinsics (symbol_table);
 

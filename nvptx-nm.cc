@@ -680,8 +680,9 @@ This program has absolutely no warranty.\n";
       set_print_width (buf);
 
       std::list<htab_t> symbol_tables;
-      htab_t symbol_table_global
-	= htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
+      /* Initial symbol table size.  */
+      const size_t n_symbols_init = 500;
+      htab_t symbol_table_global = htab_create (n_symbols_init, hash_string_hash, hash_string_eq, symbol_hash_free);
       symbol_tables.push_back (symbol_table_global);
       const char *buf_ = buf;
       /* Per nvptx-tools 'ld', there are several NUL-separated parts.  These we
@@ -689,8 +690,7 @@ This program has absolutely no warranty.\n";
 	 symbols.  */
       do
 	{
-	  htab_t symbol_table_local
-	    = htab_create (500, hash_string_hash, hash_string_eq, symbol_hash_free);
+	  htab_t symbol_table_local = htab_create (n_symbols_init, hash_string_hash, hash_string_eq, symbol_hash_free);
 	  symbol_tables.push_back (symbol_table_local);
 	  buf_ = process_refs_defs (symbol_table_global, symbol_table_local, buf_);
 	  if (buf_ == NULL)
