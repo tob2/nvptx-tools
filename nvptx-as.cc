@@ -215,7 +215,6 @@ struct Stmt
   struct Stmt *next;
   Token *tokens;
   Token *tokens_end;
-  symbol *sym;
   unsigned char vis;
 };
 
@@ -541,7 +540,7 @@ verify_preamble (const Token *tok, std::ostream &error_stream)
 static std::list<void *> heaps;
 
 static Stmt *
-alloc_stmt (unsigned vis, Token *tokens, Token *tokens_end, symbol *sym)
+alloc_stmt (unsigned vis, Token *tokens, Token *tokens_end)
 {
   static unsigned alloc = 0;
   static Stmt *heap = 0;
@@ -561,7 +560,6 @@ alloc_stmt (unsigned vis, Token *tokens, Token *tokens_end, symbol *sym)
   stmt->vis = vis;
   stmt->tokens = tokens;
   stmt->tokens_end = tokens_end;
-  stmt->sym = sym;
 
   return stmt;
 }
@@ -614,7 +612,7 @@ parse_line_nosemi (unsigned vis, Token *tok, Stmt **append_where)
     tok++;
   while (!tok[-1].end);
 
-  Stmt *stmt = alloc_stmt (vis, start, tok, 0);
+  Stmt *stmt = alloc_stmt (vis, start, tok);
   append_stmt (append_where, stmt);
 
   return tok;
@@ -649,7 +647,7 @@ parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 	case K_comment:
 	  while (tok->kind == K_comment)
 	    tok++;
-	  stmt = alloc_stmt (V_comment, start, tok, 0);
+	  stmt = alloc_stmt (V_comment, start, tok);
 	  append_stmt (&fns, stmt);
 	  continue;
 
@@ -684,13 +682,13 @@ parse_insn (Stmt *&decls, Stmt *&fns, Token *tok)
 	  break;
 	}
 
-      stmt = alloc_stmt (s, start, tok, 0);
+      stmt = alloc_stmt (s, start, tok);
       append_stmt (&fns, stmt);
 
       if (!tok[-1].end && tok[0].kind == K_comment)
 	{
 	  stmt->vis |= V_no_eol;
-	  stmt = alloc_stmt (V_comment, tok, tok + 1, 0);
+	  stmt = alloc_stmt (V_comment, tok, tok + 1);
 	  append_stmt (&fns, stmt);
 	  tok++;
 	}
@@ -713,7 +711,7 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 	{
 	  while (tok->kind == K_comment)
 	    tok++;
-	  stmt = alloc_stmt (V_comment, start, tok, 0);
+	  stmt = alloc_stmt (V_comment, start, tok);
 	  append_stmt (&sym->stmts, stmt);
 	  start = tok;
 	}
@@ -731,12 +729,12 @@ parse_init (htab_t symbol_table, Token *tok, symbol *sym)
 							   def_tok->len)));
       tok[1].space = 0;
       int end = tok++->kind == ';';
-      stmt = alloc_stmt (V_insn, start, tok, 0);
+      stmt = alloc_stmt (V_insn, start, tok);
       append_stmt (&sym->stmts, stmt);
       if (!tok[-1].end && tok->kind == K_comment)
 	{
 	  stmt->vis |= V_no_eol;
-	  stmt = alloc_stmt (V_comment, tok, tok + 1, 0);
+	  stmt = alloc_stmt (V_comment, tok, tok + 1);
 	  append_stmt (&sym->stmts, stmt);
 	  tok++;
 	}
@@ -771,7 +769,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 	}
       if (start != tok)
 	{
-	  comment = alloc_stmt (V_comment, start, tok, 0);
+	  comment = alloc_stmt (V_comment, start, tok);
 	  comment->vis |= V_prefix_comment;
 	}
     }
@@ -844,7 +842,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 		   || tok->kind == K_comment)
 	    {
 	      /* function defn */
-	      Stmt *stmt = alloc_stmt (vis, start, tok, def);
+	      Stmt *stmt = alloc_stmt (vis, start, tok);
 	      if (comment)
 		{
 		  append_stmt (&fns, comment);
@@ -875,7 +873,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 		      }
 		    }
 		  /* variable */
-		  Stmt *stmt = alloc_stmt (vis, start, tok, def);
+		  Stmt *stmt = alloc_stmt (vis, start, tok);
 		  if (comment)
 		    {
 		      append_stmt (&def->stmts, comment);
@@ -888,7 +886,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 	      else
 		{
 		  /* declaration */
-		  Stmt *stmt = alloc_stmt (vis, start, tok, 0);
+		  Stmt *stmt = alloc_stmt (vis, start, tok);
 		  if (comment)
 		    {
 		      append_stmt (&decls, comment);
