@@ -796,7 +796,6 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
       else
 	{
 	  unsigned vis = 0;
-	  symbol *def = 0;
 	  bool is_decl = false;
 	  Token *start, *def_token = 0;
 
@@ -828,9 +827,6 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 	      if (tok->kind == K_symbol || tok->kind == K_ident)
 		def_token = tok;
 	    }
-	  if (def_token)
-	    def = symbol_hash_lookup (symbol_table,
-				      xstrndup (def_token->ptr, def_token->len));
 
 	  if (!tok->kind)
 	    {
@@ -858,7 +854,7 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 	      tok++->end = 1;
 	      if ((vis & V_mask) == V_var && !is_decl)
 		{
-		  if (def == NULL)
+		  if (!def_token)
 		    {
 		      const char *eol = strchr (start->ptr, '\n');
 		      const char *line
@@ -872,7 +868,10 @@ parse_file (Stmt *&decls, htab_t symbol_table, Stmt *&fns, Token *tok, std::ostr
 			return NULL;
 		      }
 		    }
+
 		  /* variable */
+		  symbol *def = symbol_hash_lookup (symbol_table,
+						    xstrndup (def_token->ptr, def_token->len));
 		  Stmt *stmt = alloc_stmt (vis, start, tok);
 		  if (comment)
 		    {
